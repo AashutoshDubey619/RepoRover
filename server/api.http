@@ -1,6 +1,7 @@
-POST http://localhost:5000/api/ingest
+### Chat Request
+POST http://localhost:5000/api/chat
 Content-Type: application/json
 
 {
-    "repoUrl": "https://github.com/reduxjs/redux-thunk"
+    "question": "What does the createThunkMiddleware function do?"
 }

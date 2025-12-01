@@ -4,6 +4,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const axios = require('axios');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { processAndStore, getMatchesFromEmbeddings } = require('./vectorStore');
 dotenv.config();
 const app = express();
 app.use(cors());
@@ -136,6 +137,8 @@ app.post('/api/ingest', async (req, res) => {
 
         console.log(`✅ Downloaded ${validFiles.length} files successfully.`);
 
+        await processAndStore(validFiles);
+        console.log(`🎉 All files processed and stored in Vector DB!`);
         // 3. User ko dikhao
         res.json({
             message: `Scan & Download Successful! 🚀`,
@@ -151,6 +154,60 @@ app.post('/api/ingest', async (req, res) => {
 
     } catch (error) {
         res.status(500).json({ error: error.message });
+    }
+});
+
+// ✅ CHAT ROUTE: User Question -> RAG -> Answer
+app.post('/api/chat', async (req, res) => {
+    const { question } = req.body;
+    if (!question) return res.status(400).json({ error: 'Question required' });
+
+    console.log(`\n💬 User asked: "${question}"`);
+
+    try {
+        // 1. Pinecone se relevant code nikalo
+        const contextChunks = await getMatchesFromEmbeddings(question);
+
+        if (contextChunks.length === 0) {
+            return res.json({ answer: "I couldn't find any relevant code in the repository to answer this." });
+        }
+
+        // 2. Context taiyar karo (Chunks ko jod kar ek text banao)
+        const contextText = contextChunks.map(chunk => 
+            `📄 FILE: ${chunk.path}\nCODE:\n${chunk.content}\n`
+        ).join('\n---\n');
+
+        // 3. Gemini ke liye Prompt taiyar karo
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+        const prompt = `
+        You are an expert AI Developer Assistant named 'RepoRover'.
+        Use the following Code Context to answer the user's question accurately.
+        If the answer is not in the context, say "I don't have enough info in the code context."
+        
+        USER QUESTION: "${question}"
+        
+        --- CODE CONTEXT START ---
+        ${contextText}
+        --- CODE CONTEXT END ---
+        
+        Your Answer (Be technical and concise):
+        `;
+
+        console.log("🤖 Asking Gemini with Context...");
+        
+        // 4. Gemini se answer mango
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const answer = response.text();
+
+        console.log("✅ Answer Generated!");
+        res.json({ answer, sources: contextChunks.map(c => c.path) });
+
+    } catch (error) {
+        console.error("Chat Error:", error);
+        res.status(500).json({ error: "Failed to generate answer" });
     }
 });
 
