@@ -1,0 +1,6 @@
+POST http://localhost:5000/api/ingest
+Content-Type: application/json
+
+{
+    "repoUrl": "https://github.com/reduxjs/redux-thunk"
+}
