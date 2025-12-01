@@ -1,24 +1,53 @@
-// server/index.js (Day 3: Recursion & Content Edition)
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const axios = require('axios');
+const http = require('http'); // ✅ Added for Socket.io
+const { Server } = require("socket.io"); // ✅ Added for Socket.io
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { processAndStore, getMatchesFromEmbeddings } = require('./vectorStore');
+
 dotenv.config();
 const app = express();
-app.use(cors());
-app.use(express.json());
+
+// ✅ 1. Create HTTP Server & Socket.io
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: "http://localhost:5173", // Frontend URL
+        methods: ["GET", "POST"]
+    }
+});
 
 const PORT = process.env.PORT || 5000;
 
-// 👇 Helper: Sirf kaam ki files uthayenge (Images/Videos ignore)
+app.use(cors());
+app.use(express.json());
+
+// Socket Connection Check
+io.on("connection", (socket) => {
+    console.log("⚡ Client connected:", socket.id);
+});
+
+// 👇 SMART FILTER: Kachra files ko ignore karo
 const isCodeFile = (filename) => {
-    const extensions = ['.js', '.jsx', '.ts', '.tsx', '.py', '.java', '.cpp', '.h', '.html', '.css', '.json', '.md'];
-    return extensions.some(ext => filename.endsWith(ext));
+    if (
+        filename.includes('node_modules') || 
+        filename.includes('dist') || 
+        filename.includes('build') || 
+        filename.includes('coverage') ||
+        filename.includes('package-lock.json') ||
+        filename.includes('yarn.lock') ||
+        filename.includes('.git')
+    ) {
+        return false;
+    }
+
+    const allowedExtensions = ['.js', '.jsx', '.ts', '.tsx', '.py', '.java', 'README.md', '.css', '.html', '.json'];
+    return allowedExtensions.some(ext => filename.endsWith(ext));
 };
 
-// 🌀 The Recursive Function (Dil thaam ke dekho)
+// 🌀 The Recursive Function
 async function getRepoStructure(owner, repo, path = '') {
     const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
     
@@ -32,21 +61,21 @@ async function getRepoStructure(owner, repo, path = '') {
 
         let allFiles = [];
 
-        // Loop through every item (file or folder)
         for (const item of response.data) {
             if (item.type === 'dir') {
-                // 🔄 RECURSION: Agar folder hai, to wapas khud ko call karo
-                // Lekin 'path' change karke (e.g., 'src' -> 'src/components')
+                // 🛑 STOP: Agar folder 'node_modules' ya '.git' hai, to andar mat jao
+                if (item.name === 'node_modules' || item.name === '.git' || item.name === 'dist') {
+                    continue; 
+                }
                 const subFiles = await getRepoStructure(owner, repo, item.path);
                 allFiles = allFiles.concat(subFiles);
             } 
             else if (item.type === 'file' && isCodeFile(item.name)) {
-                // ✅ Agar file hai, aur code file hai, to store karo
                 console.log(`📄 Found: ${item.path}`);
                 allFiles.push({
                     name: item.name,
                     path: item.path,
-                    download_url: item.download_url // Is URL se hum text padhenge
+                    download_url: item.download_url
                 });
             }
         }
@@ -54,110 +83,71 @@ async function getRepoStructure(owner, repo, path = '') {
 
     } catch (error) {
         console.error(`Error at ${path}:`, error.message);
-        return []; // Agar error aaye (permission denied etc), to khali array bhej do
+        return [];
     }
 }
 
-
-// ✅ TEST ROUTE: Check if Gemini is working
-app.get('/api/test-gemini', async (req, res) => {
-    try {
-        // 1. Setup Gemini
-        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        
-        // 2. Select Model (Hum 'flash' use kar rahe hain kyunki ye fast aur free hai)
-        // Hum "gemini-pro" use karenge. Ye Gemini 1.0 hai, ye kabhi fail nahi hota.
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
-
-        // 3. Ask a Question
-        const prompt = "Explain 'Recursion' to a 5-year-old in one funny sentence.";
-        
-        console.log("🤖 Asking Gemini...");
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const text = response.text();
-
-        // 4. Send Answer back
-        console.log("✅ Gemini Responded!");
-        res.json({ 
-            message: "Gemini is Working! 🎉", 
-            answer: text 
-        });
-
-    } catch (error) {
-        console.error("❌ Gemini Error:", error);
-        res.status(500).json({ 
-            error: "Gemini API Failed", 
-            details: error.message 
-        });
-    }
-});
-
-
-// 🚀 Main Route
-// ✅ Route: Scan + Download Content (Updated)
+// ✅ ROUTE 1: INGEST (Scan + Download + Store)
 app.post('/api/ingest', async (req, res) => {
     const { repoUrl } = req.body;
     if (!repoUrl) return res.status(400).json({ error: 'Repo URL required' });
 
-    console.log(`\n🔍 STARTING SCAN: ${repoUrl}`);
+    // ✅ FIX: URL Cleaning (.git aur slash hatana)
+    const cleanURL = repoUrl.replace(/\/$/, '').replace(/\.git$/, '');
+    
+    console.log(`\n🔍 STARTING SCAN: ${cleanURL}`);
+    io.emit("log", `🔍 Starting scan for: ${cleanURL}`); // Send log to frontend
 
     try {
-        const cleanURL = repoUrl.replace(/\/$/, '');
         const parts = cleanURL.split('github.com/')[1].split('/');
         const owner = parts[0];
         const repo = parts[1];
 
-        // 1. Saare files ke links nikalo
         const fileList = await getRepoStructure(owner, repo);
+        io.emit("log", `📊 Found ${fileList.length} relevant files.`);
         console.log(`\n📊 Found ${fileList.length} files. Downloading content...`);
 
-        // 2. ⚡ Promise.all ka Jaadu (Parallel Download)
-        // Hum har file ke liye ek Promise bana rahe hain
+        // Parallel Download with Promise.all
         const filePromises = fileList.map(async (file) => {
             try {
-                // Raw content download karna
                 const contentRes = await axios.get(file.download_url);
+                io.emit("log", `⬇️ Downloaded: ${file.path}`);
                 return {
-                    ...file, // Purana data (name, path)
-                    content: contentRes.data // Naya data (Asli Code)
+                    ...file,
+                    content: contentRes.data
                 };
             } catch (err) {
                 console.error(`Failed to download ${file.path}`);
-                return null; // Agar fail ho jaye to null return karo
+                return null;
             }
         });
 
-        // Sabke khatam hone ka wait karo
         const filesWithContent = await Promise.all(filePromises);
-        
-        // Null values (failed downloads) ko filter out karo
         const validFiles = filesWithContent.filter(f => f !== null);
 
-        console.log(`✅ Downloaded ${validFiles.length} files successfully.`);
+        console.log(`✅ Downloaded ${validFiles.length} files.`);
+        io.emit("log", `✅ Successfully downloaded ${validFiles.length} files.`);
 
-        await processAndStore(validFiles);
-        console.log(`🎉 All files processed and stored in Vector DB!`);
-        // 3. User ko dikhao
+        // 🔥 STORE IN PINECONE (Pass callback for logs)
+        await processAndStore(validFiles, (logMsg) => {
+            io.emit("log", logMsg);
+        });
+
+        io.emit("log", `🎉 System Ready! You can now chat.`);
+        
         res.json({
             message: `Scan & Download Successful! 🚀`,
-            totalFiles: validFiles.length,
-            // Preview dikhayenge taaki yakeen ho jaye
-            firstFilePreview: {
-                path: validFiles[0]?.path,
-                contentSnippet: typeof validFiles[0]?.content === 'string' 
-                    ? validFiles[0]?.content.substring(0, 200) + "..." 
-                    : "Binary or non-text content"
-            }
+            totalFiles: validFiles.length
         });
 
     } catch (error) {
+        console.error(error);
+        io.emit("log", `❌ Error: ${error.message}`);
         res.status(500).json({ error: error.message });
     }
 });
 
-// ✅ CHAT ROUTE: User Question -> RAG -> Answer
+// ✅ ROUTE 2: CHAT (RAG Logic)
 app.post('/api/chat', async (req, res) => {
     const { question } = req.body;
     if (!question) return res.status(400).json({ error: 'Question required' });
@@ -165,45 +155,49 @@ app.post('/api/chat', async (req, res) => {
     console.log(`\n💬 User asked: "${question}"`);
 
     try {
-        // 1. Pinecone se relevant code nikalo
-        const contextChunks = await getMatchesFromEmbeddings(question);
+        const contextChunks = await getMatchesFromEmbeddings(question, 15); // Top 15 chunks
 
-        if (contextChunks.length === 0) {
-            return res.json({ answer: "I couldn't find any relevant code in the repository to answer this." });
-        }
-
-        // 2. Context taiyar karo (Chunks ko jod kar ek text banao)
         const contextText = contextChunks.map(chunk => 
             `📄 FILE: ${chunk.path}\nCODE:\n${chunk.content}\n`
         ).join('\n---\n');
 
-        // 3. Gemini ke liye Prompt taiyar karo
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
+        // 🔥 SUPER PROMPT (Senior Developer Mode)
         const prompt = `
-        You are an expert AI Developer Assistant named 'RepoRover'.
-        Use the following Code Context to answer the user's question accurately.
-        If the answer is not in the context, say "I don't have enough info in the code context."
+        You are 'RepoRover', an expert AI Senior Software Engineer and Code Reviewer.
+
+        YOUR RULES:
+        1. **CLEAN OUTPUT:** Your response must be clean and well-formatted using Markdown. Do not mix code snippets directly into narrative sentences. Use code blocks (\`\`\`) for all code.
+        2. **GREETINGS/SMALL TALK:** If the user says "hi", "hello", "thanks", or "good job", reply naturally and politely. Do NOT try to find code for this.
         
+        3. **CODE REVIEW & DEBUGGING:** If the user asks to "review", "find bugs", "optimize", or "improve" the code:
+           - Act like a Senior Engineer.
+           - Point out potential bugs 🐛.
+           - Suggest performance improvements 🚀.
+           - Highlight security risks 🔓.
+           - Be critical but constructive.
+
+        4. **EXPLANATION:** If the user asks "how does this work?", explain simply using the provided code context.
+
+        If the answer is not in the provided context, strictly say: "I don't have enough info in the scanned files to answer this."
+
         USER QUESTION: "${question}"
-        
+
         --- CODE CONTEXT START ---
         ${contextText}
         --- CODE CONTEXT END ---
-        
-        Your Answer (Be technical and concise):
+
+        Your Answer (Format with Markdown):
         `;
 
-        console.log("🤖 Asking Gemini with Context...");
-        
-        // 4. Gemini se answer mango
         const result = await model.generateContent(prompt);
         const response = await result.response;
         const answer = response.text();
 
         console.log("✅ Answer Generated!");
-        res.json({ answer, sources: contextChunks.map(c => c.path) });
+        res.json({ answer });
 
     } catch (error) {
         console.error("Chat Error:", error);
@@ -211,6 +205,21 @@ app.post('/api/chat', async (req, res) => {
     }
 });
 
-app.listen(PORT, () => {
+// ✅ Route 3: Test Gemini (Optional)
+app.get('/api/test-gemini', async (req, res) => {
+    try {
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+        const prompt = "Explain 'Recursion' to a 5-year-old in one funny sentence.";
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        res.json({ message: "Gemini is Working! 🎉", answer: response.text() });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 🚀 Use server.listen instead of app.listen for Socket.io
+server.listen(PORT, () => {
     console.log(`✅ Server running on http://localhost:${PORT}`);
 });

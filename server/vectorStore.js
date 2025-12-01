@@ -73,7 +73,7 @@ async function processAndStore(files) {
 }
 
 // ✅ NEW FUNCTION: Database se relevant code dhoondne ke liye
-async function getMatchesFromEmbeddings(question, topK = 3) {
+async function getMatchesFromEmbeddings(question, topK = 15) {
     console.log(`\n🔍 Searching Pinecone for: "${question}"`);
 
     const index = pinecone.index("reporover");
