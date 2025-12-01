@@ -6,7 +6,9 @@ const http = require('http'); // ✅ Added for Socket.io
 const { Server } = require("socket.io"); // ✅ Added for Socket.io
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { processAndStore, getMatchesFromEmbeddings } = require('./vectorStore');
+const connectDB = require('./database');
 
+connectDB();
 dotenv.config();
 const app = express();
 
