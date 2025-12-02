@@ -7,6 +7,7 @@ const { Server } = require("socket.io"); // ✅ Added for Socket.io
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { processAndStore, getMatchesFromEmbeddings } = require('./vectorStore');
 const connectDB = require('./database');
+const authRoutes = require('./routes/authRoutes');
 
 connectDB();
 dotenv.config();
@@ -16,7 +17,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: "http://localhost:5173", // Frontend URL
+        origin: "*", // <--- Star (*) ka matlab "Sabko Aane Do"
         methods: ["GET", "POST"]
     }
 });
@@ -25,6 +26,7 @@ const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
+app.use('/api/auth', authRoutes);
 
 // Socket Connection Check
 io.on("connection", (socket) => {
