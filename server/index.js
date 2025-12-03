@@ -63,7 +63,7 @@ async function getRepoStructure(owner, repo, path = '') {
     try {
         const response = await axios.get(url, {
             headers: {
-                'Authorization': `Bearer ${process.env.GITHUB_TOKEN}`,
+                'Authorization': `token ${process.env.GITHUB_TOKEN}`,
                 'Accept': 'application/vnd.github.v3+json'
             }
         });

@@ -3,8 +3,14 @@ const jwt = require('jsonwebtoken');
 const auth = async (req, res, next) => {
     try {
         // Token header se nikalo (Jo frontend bhejega: Bearer token)
-        const token = req.headers.authorization.split(" ")[1];
-        
+        const authHeader = req.headers.authorization;
+
+        if (!authHeader || !authHeader.startsWith("Bearer ")) {
+            return res.status(401).json({ message: "No token provided or invalid format." });
+        }
+
+        const token = authHeader.split(" ")[1];
+
         if (!token) return res.status(401).json({ message: "No token provided." });
 
         // Token verify karo
