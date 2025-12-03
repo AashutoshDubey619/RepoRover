@@ -3,6 +3,8 @@ import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 import { Database, UserPlus, Mail, Lock, User, ArrowRight, Loader2 } from 'lucide-react';
 
+const API_BASE_URL = 'https://reporover-backend.onrender.com';
+
 function Signup() {
   const [formData, setFormData] = useState({ username: '', email: '', password: '' });
   const [isLoading, setIsLoading] = useState(false);
@@ -12,7 +14,7 @@ function Signup() {
     e.preventDefault();
     setIsLoading(true);
     try {
-      await axios.post('http://localhost:5000/api/auth/register', formData);
+      await axios.post(`${API_BASE_URL}/api/auth/register`, formData);
       // Success hone par thoda wait karke redirect karenge
       setTimeout(() => {
         alert('Registration Successful! Please Login.');

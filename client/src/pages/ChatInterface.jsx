@@ -5,6 +5,8 @@ import ReactMarkdown from 'react-markdown';
 import { io } from "socket.io-client";
 import { useNavigate } from 'react-router-dom';
 
+const API_BASE_URL = 'https://reporover-backend.onrender.com';
+
 function ChatInterface() {
   const navigate = useNavigate();
   
@@ -32,7 +34,7 @@ function ChatInterface() {
   const fetchChatList = async () => {
     try {
         const token = localStorage.getItem('token');
-        const res = await axios.get('http://localhost:5000/api/chats', {
+        const res = await axios.get(`${API_BASE_URL}/api/chats`, {
             headers: { Authorization: `Bearer ${token}` }
         });
         setChatHistoryList(res.data);
@@ -47,16 +49,16 @@ function ChatInterface() {
 
   // Socket Connection
   useEffect(() => {
-    const socket = io("http://localhost:5000", {
+    const socket = io(API_BASE_URL, {
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
     });
-    
+
     socket.on("log", (message) => setLogs(prev => [...prev, message]));
     socket.on("connect_error", (err) => console.error("Socket Error:", err.message));
 
     return () => socket.disconnect();
-  }, []); 
+  }, []);
 
   useEffect(() => { logsEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [logs]);
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
@@ -76,10 +78,10 @@ function ChatInterface() {
 
   const loadChat = async (url) => {
       setRepoUrl(url);
-      setStatus('ready'); 
+      setStatus('ready');
       try {
         const token = localStorage.getItem('token');
-        const res = await axios.get(`http://localhost:5000/api/chat/history?repoUrl=${url}`, {
+        const res = await axios.get(`${API_BASE_URL}/api/chat/history?repoUrl=${url}`, {
             headers: { Authorization: `Bearer ${token}` }
         });
         if(res.data.length > 0) {
@@ -95,15 +97,15 @@ function ChatInterface() {
   const handleIngest = async () => {
     if (!repoUrl) return;
     setStatus('scanning');
-    setLogs([]); 
+    setLogs([]);
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.post('http://localhost:5000/api/ingest', { repoUrl }, {
+      const res = await axios.post(`${API_BASE_URL}/api/ingest`, { repoUrl }, {
           headers: { Authorization: `Bearer ${token}` }
       });
       setStatus('ready');
       setMessages(prev => [...prev, { role: 'bot', text: `${res.data.totalFiles} files activated — query engine is now online.` }]);
-      fetchChatList(); 
+      fetchChatList();
     } catch (err) {
       console.error(err);
       setStatus('idle');
@@ -114,17 +116,17 @@ function ChatInterface() {
   const handleAsk = async () => {
     if (!question) return;
     const userQ = question;
-    setQuestion(''); 
-    setMessages(prev => [...prev, { role: 'user', text: userQ }]); 
+    setQuestion('');
+    setMessages(prev => [...prev, { role: 'user', text: userQ }]);
     setStatus('chatting');
 
     try {
         const token = localStorage.getItem('token');
-        const res = await axios.post('http://localhost:5000/api/chat', { question: userQ, repoUrl }, {
+        const res = await axios.post(`${API_BASE_URL}/api/chat`, { question: userQ, repoUrl }, {
             headers: { Authorization: `Bearer ${token}` }
         });
         setMessages(prev => [...prev, { role: 'bot', text: res.data.answer }]);
-        fetchChatList(); 
+        fetchChatList();
     } catch (err) {
       setMessages(prev => [...prev, { role: 'bot', text: "Error generating response." }]);
     } finally {

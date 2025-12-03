@@ -3,6 +3,8 @@ import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 import { Database } from 'lucide-react';
 
+const API_BASE_URL = 'https://reporover-backend.onrender.com';
+
 function Login() {
   const [formData, setFormData] = useState({ email: '', password: '' });
   const navigate = useNavigate();
@@ -11,7 +13,7 @@ function Login() {
     e.preventDefault();
     try {
       // Backend Login API call
-      const res = await axios.post('http://localhost:5000/api/auth/login', formData);
+      const res = await axios.post(`${API_BASE_URL}/api/auth/login`, formData);
       
       // Token save karo (Browser ki memory mein)
       localStorage.setItem('token', res.data.token);
