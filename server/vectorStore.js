@@ -1,49 +1,52 @@
-// server/vectorStore.js (Final Fixed Version)
 const { Pinecone } = require('@pinecone-database/pinecone');
 const { GoogleGenerativeAIEmbeddings } = require("@langchain/google-genai");
 const { RecursiveCharacterTextSplitter } = require("@langchain/textsplitters");
 const dotenv = require('dotenv');
 dotenv.config();
 
-// 1. Connection Setup
 const pinecone = new Pinecone({
     apiKey: process.env.PINECONE_API_KEY
 });
 
-// ✅ FIX 1: Use Latest Model (text-embedding-004)
 const embeddings = new GoogleGenerativeAIEmbeddings({
     modelName: "text-embedding-004", 
     apiKey: process.env.GEMINI_API_KEY
 });
 
-// ✅ FIX 2: Helper Function to Pause (Sleep)
+// Helper: Batch processing for parallel execution with limit
+async function processBatch(items, batchSize, processFn) {
+    for (let i = 0; i < items.length; i += batchSize) {
+        const batch = items.slice(i, i + batchSize);
+        await Promise.all(batch.map(processFn));
+    }
+}
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function processAndStore(files) {
-    console.log(`\n⚙️ Processing ${files.length} files for Vector DB...`);
-
+async function processAndStore(files, onProgress) {
     const index = pinecone.index("reporover"); 
     
     const splitter = new RecursiveCharacterTextSplitter({
         chunkSize: 1000, 
-        chunkOverlap: 200, 
+        chunkOverlap: 50, // Reduced overlap for speed
     });
 
     let totalVectors = 0;
+    const batchSize = 5; // Process 5 files at a time (Parallel)
 
-    for (const file of files) {
-        if (!file.content || typeof file.content !== 'string') continue;
+    const processFile = async (file) => {
+        if (!file.content || typeof file.content !== 'string') return;
 
-        console.log(`Processing: ${file.path}`);
+        if (onProgress) onProgress(`⚡ Processing: ${file.path}`);
         
         const chunks = await splitter.createDocuments([file.content]);
         const vectors = [];
         
-        for (const chunk of chunks) {
+        // Chunk Embedding (Parallel within file)
+        await Promise.all(chunks.map(async (chunk) => {
             try {
-                // ✅ FIX 3: Add 1-second delay before request
-                await sleep(1000); // 1 second ka break
-
+                // Small delay to respect rate limits even in parallel
+                await sleep(200); 
                 const embeddingVector = await embeddings.embedQuery(chunk.pageContent);
                 
                 vectors.push({
@@ -56,53 +59,43 @@ async function processAndStore(files) {
                 });
             } catch (err) {
                 console.error(`⚠️ Error embedding chunk: ${err.message}`);
-                // Agar ek chunk fail ho, to poora process mat roko, aage badho
-                continue; 
             }
-        }
+        }));
 
         if (vectors.length > 0) {
+            // Upsert to Pinecone
             await index.upsert(vectors);
             totalVectors += vectors.length;
-            console.log(`   -> Uploaded ${vectors.length} chunks for ${file.path}`);
+            if (onProgress) onProgress(`✅ Indexed: ${file.path} (${vectors.length} chunks)`);
         }
-    }
+    };
 
-    console.log(`\n✅ Successfully stored ${totalVectors} vectors in Pinecone! 💾`);
+    // Process files in batches
+    await processBatch(files, batchSize, processFile);
+
+    if (onProgress) onProgress(`🚀 COMPLETE: Stored ${totalVectors} vectors!`);
     return totalVectors;
 }
 
-// ✅ NEW FUNCTION: Database se relevant code dhoondne ke liye
+// Search logic remains same
 async function getMatchesFromEmbeddings(question, topK = 15) {
-    console.log(`\n🔍 Searching Pinecone for: "${question}"`);
-
     const index = pinecone.index("reporover");
-
     try {
-        // 1. User ke sawal ko Vector (Numbers) banao
         const queryEmbedding = await embeddings.embedQuery(question);
-
-        // 2. Pinecone mein match dhoondo
         const queryResponse = await index.query({
             vector: queryEmbedding,
-            topK: topK, // Top 3 sabse relevant chunks lao
-            includeMetadata: true // Hamein text bhi chahiye, sirf numbers nahi
+            topK: topK, 
+            includeMetadata: true 
         });
-
-        console.log(`✅ Found ${queryResponse.matches.length} matches.`);
-        
-        // 3. Sirf text wapas bhejo
         return queryResponse.matches.map(match => ({
             content: match.metadata.content,
             path: match.metadata.path,
-            score: match.score // Kitna match kiya (0 to 1)
+            score: match.score 
         }));
-
     } catch (error) {
         console.error("❌ Error querying Pinecone:", error);
         return [];
     }
 }
-
 
 module.exports = { processAndStore, getMatchesFromEmbeddings };
