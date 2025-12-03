@@ -21,7 +21,7 @@ function Signup() {
         navigate('/login');
       }, 1000);
     } catch (err) {
-      alert('Error registering user');
+      alert(err.response?.data?.message || 'Error registering user');
       setIsLoading(false);
     }
   };

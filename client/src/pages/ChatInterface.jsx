@@ -10,7 +10,6 @@ const API_BASE_URL = 'https://reporover-backend.onrender.com';
 function ChatInterface() {
   const navigate = useNavigate();
   
-  // State variables
   const [repoUrl, setRepoUrl] = useState('');
   const [status, setStatus] = useState('idle'); 
   const [messages, setMessages] = useState([
@@ -30,7 +29,7 @@ function ChatInterface() {
     }
   }, [navigate]);
 
-  // Fetch Chat History List
+  
   const fetchChatList = async () => {
     try {
         const token = localStorage.getItem('token');
@@ -47,7 +46,7 @@ function ChatInterface() {
       fetchChatList();
   }, []);
 
-  // Socket Connection
+  
   useEffect(() => {
     const socket = io(API_BASE_URL, {
         reconnectionAttempts: 5,

@@ -2,19 +2,32 @@ const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-// Register Logic
 exports.register = async (req, res) => {
   try {
-    const { username, email, password } = req.body;
-    
-    // Check if user exists
+    let { username, email, password } = req.body;
+
+    username = username?.trim();
+    email = email?.trim().toLowerCase();
+    password = password?.trim();
+
+    if (!username || !email || !password) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters" });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ message: "Invalid email format" });
+    }
+
     const existingUser = await User.findOne({ email });
     if (existingUser) return res.status(400).json({ message: "User already exists" });
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Create user
     const newUser = new User({ username, email, password: hashedPassword });
     await newUser.save();
 
@@ -24,20 +37,23 @@ exports.register = async (req, res) => {
   }
 };
 
-// Login Logic
 exports.login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    let { email, password } = req.body;
 
-    // Find user
+    email = email?.trim().toLowerCase();
+    password = password?.trim();
+
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password are required" });
+    }
+
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // Check password
     const isPasswordCorrect = await bcrypt.compare(password, user.password);
     if (!isPasswordCorrect) return res.status(400).json({ message: "Invalid credentials" });
 
-    // Generate Token
     const token = jwt.sign({ email: user.email, id: user._id }, 'SECRET_KEY', { expiresIn: '1h' });
 
     res.status(200).json({ result: user, token });

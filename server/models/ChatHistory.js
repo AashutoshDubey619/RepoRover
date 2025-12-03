@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const chatSchema = new mongoose.Schema({
     userId: {
-        type: mongoose.Schema.Types.ObjectId, // User ki ID
+        type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
         required: true,
     },
@@ -10,7 +10,7 @@ const chatSchema = new mongoose.Schema({
         type: String,
         required: true,
     },
-    messages: [ // Array of messages
+    messages: [
         {
             role: { type: String, enum: ['user', 'bot'], required: true },
             text: { type: String, required: true },

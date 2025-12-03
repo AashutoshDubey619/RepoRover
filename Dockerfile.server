@@ -1,20 +1,13 @@
-# 1. Node.js ka chota version use karenge (Alpine)
 FROM node:20-alpine
 
-# 2. Container ke andar 'app/server' folder mein kaam karenge
 WORKDIR /app/server
 
-# 3. Sirf package files copy karo pehle (Caching ke liye best practice)
 COPY server/package.json server/package-lock.json ./
 
-# 4. Libraries install karo
 RUN npm install
 
-# 5. Baaki sara code copy karo
 COPY server/. .
 
-# 6. Port batao
 EXPOSE 5000
 
-# 7. Server start karo
 CMD ["node", "index.js"]

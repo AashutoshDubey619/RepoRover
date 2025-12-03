@@ -12,15 +12,13 @@ function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      // Backend Login API call
       const res = await axios.post(`${API_BASE_URL}/api/auth/login`, formData);
-      
-      // Token save karo (Browser ki memory mein)
+
       localStorage.setItem('token', res.data.token);
       localStorage.setItem('user', JSON.stringify(res.data.result));
-      
+
       alert('Login Successful! 🚀');
-      navigate('/'); // Chat page par bhej do
+      navigate('/');
     } catch (err) {
       alert(err.response?.data?.message || 'Login Failed');
     }

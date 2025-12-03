@@ -1,16 +1,14 @@
 version: '3.8'
 
 services:
-  # 1. MongoDB Database (Ye alag container banega)
   mongo:
     image: mongo:latest
     container_name: reporover_mongo
     ports:
       - "27017:27017"
     volumes:
-      - mongo-data:/data/db # Data save rahega agar container band bhi ho jaye
+      - mongo-data:/data/db
 
-  # 2. Backend API
   backend:
     build:
       context: .
@@ -19,27 +17,23 @@ services:
     ports:
       - "5000:5000"
     environment:
-      # Docker magic: 'localhost' ki jagah service name 'mongo' use hoga
       - MONGO_URI=mongodb://mongo:27017/reporover_db
-      # Ye values tumhari .env file se aayengi (make sure .env main folder me ho ya yaha direct values dal do)
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - PINECONE_API_KEY=${PINECONE_API_KEY}
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - PORT=5000
     depends_on:
-      - mongo # Backend tabhi chalega jab DB ready ho
+      - mongo
 
-  # 3. Frontend UI
   frontend:
     build:
       context: .
       dockerfile: Dockerfile.client
     container_name: reporover_frontend
     ports:
-      - "80:80" # Browser pe localhost:80 (bina port ke) chalega
+      - "80:80"
     depends_on:
       - backend
 
-# Volumes define karo
 volumes:
   mongo-data:

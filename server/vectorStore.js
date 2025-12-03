@@ -13,7 +13,6 @@ const embeddings = new GoogleGenerativeAIEmbeddings({
     apiKey: process.env.GEMINI_API_KEY
 });
 
-// Helper: Batch processing for parallel execution with limit
 async function processBatch(items, batchSize, processFn) {
     for (let i = 0; i < items.length; i += batchSize) {
         const batch = items.slice(i, i + batchSize);
@@ -27,12 +26,12 @@ async function processAndStore(files, onProgress) {
     const index = pinecone.index("reporover"); 
     
     const splitter = new RecursiveCharacterTextSplitter({
-        chunkSize: 1000, 
-        chunkOverlap: 50, // Reduced overlap for speed
+        chunkSize: 1000,
+        chunkOverlap: 50,
     });
 
     let totalVectors = 0;
-    const batchSize = 5; // Process 5 files at a time (Parallel)
+    const batchSize = 5;
 
     const processFile = async (file) => {
         if (!file.content || typeof file.content !== 'string') return;
@@ -42,11 +41,10 @@ async function processAndStore(files, onProgress) {
         const chunks = await splitter.createDocuments([file.content]);
         const vectors = [];
         
-        // Chunk Embedding (Parallel within file)
+
         await Promise.all(chunks.map(async (chunk) => {
             try {
-                // Small delay to respect rate limits even in parallel
-                await sleep(200); 
+                await sleep(200);
                 const embeddingVector = await embeddings.embedQuery(chunk.pageContent);
                 
                 vectors.push({
@@ -63,21 +61,18 @@ async function processAndStore(files, onProgress) {
         }));
 
         if (vectors.length > 0) {
-            // Upsert to Pinecone
             await index.upsert(vectors);
             totalVectors += vectors.length;
             if (onProgress) onProgress(`✅ Indexed: ${file.path} (${vectors.length} chunks)`);
         }
     };
 
-    // Process files in batches
     await processBatch(files, batchSize, processFile);
 
     if (onProgress) onProgress(`🚀 COMPLETE: Stored ${totalVectors} vectors!`);
     return totalVectors;
 }
 
-// Search logic remains same
 async function getMatchesFromEmbeddings(question, topK = 15) {
     const index = pinecone.index("reporover");
     try {

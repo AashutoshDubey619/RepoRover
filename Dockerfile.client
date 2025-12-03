@@ -1,24 +1,17 @@
-# --- STAGE 1: Build React App ---
 FROM node:20-alpine AS builder
 
-WORKDIR /app/client
-
-# Dependencies install karo
 COPY client/package.json client/package-lock.json ./
+
 RUN npm install
 
-# Code copy karke build banao (Vite build -> dist folder)
 COPY client/. .
+
 RUN npm run build
 
-# --- STAGE 2: Serve with Nginx ---
 FROM nginx:alpine
 
-# Build kiya hua 'dist' folder Nginx ke html folder mein daalo
 COPY --from=builder /app/client/dist /usr/share/nginx/html
 
-# Port 80 kholo (Browser ke liye)
 EXPOSE 80
 
-# Nginx chalao
 CMD ["nginx", "-g", "daemon off;"]
