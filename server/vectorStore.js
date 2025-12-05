@@ -53,18 +53,18 @@ async function processAndStore(files, onProgress) {
                     metadata: {
                         path: file.path,
                         content: chunk.pageContent,
-                        repoUrl: file.repoUrl // 🔥 IMPORTANT: Repo URL save kar rahe hain taaki filter kar sakein
+                        repoUrl: file.repoUrl ,
                     }
                 });
             } catch (err) {
-                console.error(`⚠️ Error embedding chunk: ${err.message}`);
+                console.error(` Error embedding chunk: ${err.message}`);
             }
         }));
 
         if (vectors.length > 0) {
             await index.upsert(vectors);
             totalVectors += vectors.length;
-            if (onProgress) onProgress(`✅ Indexed: ${file.path} (${vectors.length} chunks)`);
+            if (onProgress) onProgress(` Indexed: ${file.path} (${vectors.length} chunks)`);
         }
     };
 
@@ -74,7 +74,7 @@ async function processAndStore(files, onProgress) {
     return totalVectors;
 }
 
-// ✅ UPDATED SEARCH: Ab 'filter' bhi lega
+
 async function getMatchesFromEmbeddings(question, topK = 15, repoUrl = null) {
     const index = pinecone.index("reporover");
     try {
@@ -87,7 +87,7 @@ async function getMatchesFromEmbeddings(question, topK = 15, repoUrl = null) {
             vector: queryEmbedding,
             topK: topK, 
             includeMetadata: true,
-            filter: filter // 🔥 Filter apply kiya
+            filter: filter 
         });
         
         return queryResponse.matches.map(match => ({
@@ -96,7 +96,7 @@ async function getMatchesFromEmbeddings(question, topK = 15, repoUrl = null) {
             score: match.score 
         }));
     } catch (error) {
-        console.error("❌ Error querying Pinecone:", error);
+        console.error(" Error querying Pinecone:", error);
         return [];
     }
 }

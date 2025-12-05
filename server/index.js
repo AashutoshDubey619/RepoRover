@@ -126,7 +126,7 @@ app.post('/api/ingest', auth, async (req, res) => {
                 return {
                     ...file,
                     content: contentRes.data,
-                    repoUrl: cleanURL // 🔥 FIX: Har file ke saath uska maalik (Repo URL) tag kar do
+                    repoUrl: cleanURL 
                 };
             } catch (err) {
                 console.error(`Failed to download ${file.path}`);
