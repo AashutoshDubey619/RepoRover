@@ -122,8 +122,12 @@ app.post('/api/ingest', auth, async (req, res) => {
         const filePromises = fileList.map(async (file) => {
             try {
                 const contentRes = await axios.get(file.download_url);
-                io.emit("log", `⬇ Downloaded: ${file.path}`);
-                return { ...file, content: contentRes.data };
+                io.emit("log", `⬇️ Downloaded: ${file.path}`);
+                return {
+                    ...file,
+                    content: contentRes.data,
+                    repoUrl: cleanURL // 🔥 FIX: Har file ke saath uska maalik (Repo URL) tag kar do
+                };
             } catch (err) {
                 console.error(`Failed to download ${file.path}`);
                 return null;
@@ -171,7 +175,7 @@ app.post('/api/chat', auth, async (req, res) => {
         chat.messages.push({ role: 'user', text: question });
         await chat.save();
 
-        const contextChunks = await getMatchesFromEmbeddings(question, 15);
+         const contextChunks = await getMatchesFromEmbeddings(question, 15, repoUrl); 
         const contextText = contextChunks.map(chunk => 
             ` FILE: ${chunk.path}\nCODE:\n${chunk.content}\n`
         ).join('\n---\n');

@@ -25,8 +25,8 @@ function Login() {
   };
 
   return (
-    <div className="flex h-screen bg-black text-white items-center justify-center selection:bg-purple-500/30">
-      <div className="w-96 p-8 bg-zinc-950 rounded-2xl border border-zinc-800 shadow-2xl">
+    <div className="flex h-screen bg-black text-white items-center justify-center px-4 selection:bg-purple-500/30">
+      <div className="w-full max-w-md p-8 bg-zinc-950 rounded-2xl border border-zinc-800 shadow-2xl">
         <div className="flex justify-center mb-6 text-violet-400">
           <Database className="w-12 h-12" />
         </div>

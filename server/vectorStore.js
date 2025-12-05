@@ -13,6 +13,7 @@ const embeddings = new GoogleGenerativeAIEmbeddings({
     apiKey: process.env.GEMINI_API_KEY
 });
 
+// Helper: Batch processing for parallel execution with limit
 async function processBatch(items, batchSize, processFn) {
     for (let i = 0; i < items.length; i += batchSize) {
         const batch = items.slice(i, i + batchSize);
@@ -26,12 +27,12 @@ async function processAndStore(files, onProgress) {
     const index = pinecone.index("reporover"); 
     
     const splitter = new RecursiveCharacterTextSplitter({
-        chunkSize: 1000,
-        chunkOverlap: 50,
+        chunkSize: 1000, 
+        chunkOverlap: 50, 
     });
 
     let totalVectors = 0;
-    const batchSize = 5;
+    const batchSize = 5; 
 
     const processFile = async (file) => {
         if (!file.content || typeof file.content !== 'string') return;
@@ -41,10 +42,9 @@ async function processAndStore(files, onProgress) {
         const chunks = await splitter.createDocuments([file.content]);
         const vectors = [];
         
-
         await Promise.all(chunks.map(async (chunk) => {
             try {
-                await sleep(200);
+                await sleep(200); 
                 const embeddingVector = await embeddings.embedQuery(chunk.pageContent);
                 
                 vectors.push({
@@ -52,7 +52,8 @@ async function processAndStore(files, onProgress) {
                     values: embeddingVector,
                     metadata: {
                         path: file.path,
-                        content: chunk.pageContent 
+                        content: chunk.pageContent,
+                        repoUrl: file.repoUrl // 🔥 IMPORTANT: Repo URL save kar rahe hain taaki filter kar sakein
                     }
                 });
             } catch (err) {
@@ -73,15 +74,22 @@ async function processAndStore(files, onProgress) {
     return totalVectors;
 }
 
-async function getMatchesFromEmbeddings(question, topK = 15) {
+// ✅ UPDATED SEARCH: Ab 'filter' bhi lega
+async function getMatchesFromEmbeddings(question, topK = 15, repoUrl = null) {
     const index = pinecone.index("reporover");
     try {
         const queryEmbedding = await embeddings.embedQuery(question);
+        
+        // Filter Object
+        const filter = repoUrl ? { repoUrl: { $eq: repoUrl } } : undefined;
+
         const queryResponse = await index.query({
             vector: queryEmbedding,
             topK: topK, 
-            includeMetadata: true 
+            includeMetadata: true,
+            filter: filter // 🔥 Filter apply kiya
         });
+        
         return queryResponse.matches.map(match => ({
             content: match.metadata.content,
             path: match.metadata.path,
