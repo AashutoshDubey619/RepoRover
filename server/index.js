@@ -164,7 +164,7 @@ app.post('/api/chat', auth, async (req, res) => {
     if (!question) return res.status(400).json({ error: 'Question required' });
 
     // Agar repoUrl nahi aaya (purane frontend code se), to default string use karenge
-    const currentRepo = repoUrl || "Unknown-Repo";
+    const currentRepo = repoUrl ? repoUrl.replace(/\/$/, '').replace(/\.git$/, '') : "Unknown-Repo";
 
     console.log(`\n💬 User (${req.userId}) asked: "${question}" on ${currentRepo}`);
 
@@ -187,14 +187,14 @@ app.post('/api/chat', auth, async (req, res) => {
 
         // --- 3. RAG PIPELINE (Generate Answer) ---
         // 🔥 FIX: Pass repoUrl to filter search results
-        const contextChunks = await getMatchesFromEmbeddings(question, 15, currentRepo); 
-        const contextText = contextChunks.map(chunk => 
+        const contextChunks = await getMatchesFromEmbeddings(question, 15, currentRepo);
+        const contextText = contextChunks.map(chunk =>
             `📄 FILE: ${chunk.path}\nCODE:\n${chunk.content}\n`
         ).join('\n---\n');
 
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
         // Using Gemini 1.5 Flash (Stable & Fast)
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }); 
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
         const prompt = `
         You are 'RepoRover', an expert AI Senior Software Engineer and Code Reviewer.
@@ -204,8 +204,7 @@ app.post('/api/chat', auth, async (req, res) => {
         2. **GREETINGS/SMALL TALK:** If the user says "hi", "hello", "thanks", or "good job", reply naturally and politely. Do NOT use the code context.
         3. **CODE REVIEW & DEBUGGING:** If the user asks to "review", "find bugs", "optimize", or "improve" the code, be critical and precise.
         4. **EXPLANATION:** Explain complex logic clearly using the provided code context.
-
-        If the answer is not in the provided context, strictly say: "I don't have enough info in the scanned files to answer this."
+        5. **FLEXIBLE ANSWERING:** If the answer is not fully in the provided context, provide a partial answer based on the available information or general knowledge. Note any limitations if the context is insufficient.
 
         USER QUESTION: "${question}"
 

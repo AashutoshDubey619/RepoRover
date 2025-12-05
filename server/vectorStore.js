@@ -27,8 +27,8 @@ async function processAndStore(files, onProgress) {
     const index = pinecone.index("reporover"); 
     
     const splitter = new RecursiveCharacterTextSplitter({
-        chunkSize: 1000, 
-        chunkOverlap: 50, 
+        chunkSize: 800,
+        chunkOverlap: 100,
     });
 
     let totalVectors = 0;
@@ -79,21 +79,23 @@ async function getMatchesFromEmbeddings(question, topK = 15, repoUrl = null) {
     const index = pinecone.index("reporover");
     try {
         const queryEmbedding = await embeddings.embedQuery(question);
-        
+
         // Filter Object
         const filter = repoUrl ? { repoUrl: { $eq: repoUrl } } : undefined;
+        console.log(`🔍 Querying Pinecone with filter: ${JSON.stringify(filter)}`);
 
         const queryResponse = await index.query({
             vector: queryEmbedding,
-            topK: topK, 
+            topK: topK,
             includeMetadata: true,
-            filter: filter 
+            filter: filter
         });
-        
+
+        console.log(`📊 Found ${queryResponse.matches.length} matches for question: "${question}"`);
         return queryResponse.matches.map(match => ({
             content: match.metadata.content,
             path: match.metadata.path,
-            score: match.score 
+            score: match.score
         }));
     } catch (error) {
         console.error(" Error querying Pinecone:", error);
