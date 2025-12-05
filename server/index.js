@@ -194,7 +194,7 @@ app.post('/api/chat', auth, async (req, res) => {
 
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
         // Using Gemini 1.5 Flash (Stable & Fast)
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); 
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }); 
 
         const prompt = `
         You are 'RepoRover', an expert AI Senior Software Engineer and Code Reviewer.
