@@ -32,30 +32,38 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// Auth Routes setup
+
 app.use('/api/auth', authRoutes);
 
-// Socket Connection Check
+
 io.on("connection", (socket) => {
     console.log("⚡ Client connected:", socket.id);
 });
 
-// 👇 SMART FILTER: Kachra files ko ignore karo
+
 const isCodeFile = (filename) => {
-    if (
-        filename.includes('node_modules') || 
-        filename.includes('dist') || 
-        filename.includes('build') || 
-        filename.includes('coverage') ||
-        filename.includes('package-lock.json') ||
-        filename.includes('yarn.lock') ||
-        filename.includes('.git')
-    ) {
+    const ignorePatterns = [
+        'node_modules',
+        'dist',
+        'build',
+        'coverage',
+        '.git',
+        '.next',
+        '.vercel',
+        'package-lock.json',
+        'yarn.lock',
+        '.turbo',
+        '.cache',
+        '.output'
+    ];
+
+    
+    if (ignorePatterns.some(pattern => filename.includes(pattern))) {
         return false;
     }
 
-    const allowedExtensions = ['.js', '.jsx', '.ts', '.tsx', '.py', '.java', 'README.md', '.css', '.html', '.json'];
-    return allowedExtensions.some(ext => filename.endsWith(ext));
+    
+    return true;
 };
 
 // 🌀 The Recursive Function
@@ -193,7 +201,7 @@ app.post('/api/chat', auth, async (req, res) => {
         ).join('\n---\n');
 
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        // Using Gemini 1.5 Flash (Stable & Fast)
+       
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
         const prompt = `
