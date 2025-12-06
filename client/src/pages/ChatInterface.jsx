@@ -179,22 +179,40 @@ function ChatInterface() {
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}>
         
-        {/* Header */}
-        <div className="p-4 border-b border-zinc-800 hidden md:block">
-            <div className="flex items-center gap-3 mb-4 group cursor-default">
-                {/* FIX: animate-float moved to the container div for consistency with chat bubbles */}
-                <div className="w-8 h-8 bg-zinc-900 rounded-full flex items-center justify-center border border-zinc-700 shadow-[0_0_15px_rgba(168,85,247,0.15)] group-hover:shadow-[0_0_20px_rgba(168,85,247,0.3)] transition-all duration-300 animate-float">
-                    <Bot className="w-5 h-5 text-purple-400" />
-                </div>
-                <h1 className="text-lg font-bold tracking-tight text-zinc-100 group-hover:text-purple-400 transition-colors">RepoRover</h1>
-            </div>
-            <button 
-                onClick={startNewChat}
-                className="w-full flex items-center justify-center gap-2 bg-white text-black px-4 py-2.5 rounded-md font-medium text-sm hover:bg-zinc-200 transition-all shadow-md active:scale-95"
-            >
-                <Plus className="w-4 h-4" /> New Chat
-            </button>
+       {/* Header */}
+<div className="p-4 border-b border-zinc-800 hidden md:block">
+    <div className="flex items-center gap-3 mb-4 group cursor-default">
+        
+        {/* APP LOGO (replacing Bot icon - nothing else touched) */}
+        <div className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 animate-float relative">
+            <div className="absolute inset-0 blur-md bg-[#d06bff]/50 rounded-full opacity-80"></div>
+            <img
+              src={logo}
+              alt="RepoRover Logo"
+              className="
+                relative w-6 h-6
+                brightness-150
+                contrast-140
+                drop-shadow-[0_0_22px_rgba(255,190,255,1)]
+                transition-all duration-300
+                group-hover:drop-shadow-[0_0_35px_rgba(255,200,255,1)]
+                group-hover:scale-110
+              "
+            />
         </div>
+
+        <h1 className="text-lg font-bold tracking-tight text-zinc-100 group-hover:text-purple-400 transition-colors">
+            RepoRover
+        </h1>
+    </div>
+
+    <button 
+        onClick={startNewChat}
+        className="w-full flex items-center justify-center gap-2 bg-white text-black px-4 py-2.5 rounded-md font-medium text-sm hover:bg-zinc-200 transition-all shadow-md active:scale-95"
+    >
+        <Plus className="w-4 h-4" /> New Chat
+    </button>
+</div>
 
         {/* Mobile New Chat Button */}
         <div className="p-4 md:hidden mt-16">
