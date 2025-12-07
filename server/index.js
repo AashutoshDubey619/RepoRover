@@ -21,20 +21,18 @@ const io = new Server(server, {
 });
 
 const PORT = process.env.PORT || 5000;
-
 app.use(cors());
 app.use(express.json());
 app.use('/api/auth', authRoutes);
 
 io.on("connection", () => {});
 
-const ignorePatterns = [
-    'node_modules','dist','build','coverage','.git','.next','.vercel',
-    'package-lock.json','yarn.lock','.turbo','.cache','.output'
-];
-
 const isCodeFile = (filename) => {
-    return !ignorePatterns.some(p => filename.includes(p));
+    const ignorePatterns = [
+        'node_modules', 'dist', 'build', 'coverage', '.git', '.next', '.vercel',
+        'package-lock.json', 'yarn.lock', '.turbo', '.cache', '.output'
+    ];
+    return !ignorePatterns.some(pattern => filename.includes(pattern));
 };
 
 async function getRepoStructure(owner, repo, path = '') {
@@ -78,7 +76,7 @@ app.post('/api/ingest', auth, async (req, res) => {
         const owner = parts[0];
         const repo = parts[1];
 
-        io.emit("log", `Scanning repository...`);
+        io.emit("log", `Scan started`);
         const fileList = await getRepoStructure(owner, repo);
         io.emit("log", `${fileList.length} files found`);
 
@@ -92,11 +90,13 @@ app.post('/api/ingest', auth, async (req, res) => {
             }
         });
 
-        const validFiles = (await Promise.all(filePromises)).filter(Boolean);
-        io.emit("log", `Processing ${validFiles.length} files`);
-        await processAndStore(validFiles, msg => io.emit("log", msg));
-        io.emit("log", `Ready for chat`);
+        const filesWithContent = await Promise.all(filePromises);
+        const validFiles = filesWithContent.filter(Boolean);
+        io.emit("log", `${validFiles.length} files processed`);
 
+        await processAndStore(validFiles, msg => io.emit("log", msg));
+        io.emit("log", `System ready`);
+        
         res.json({ message: `Scan completed`, totalFiles: validFiles.length });
     } catch (error) {
         io.emit("log", `Error`);
@@ -114,14 +114,20 @@ app.post('/api/chat', auth, async (req, res) => {
 
     try {
         let chat = await ChatHistory.findOne({ userId: req.userId, repoUrl: currentRepo });
-        if (!chat) chat = new ChatHistory({ userId: req.userId, repoUrl: currentRepo, messages: [] });
+        if (!chat) {
+            chat = new ChatHistory({
+                userId: req.userId,
+                repoUrl: currentRepo,
+                messages: []
+            });
+        }
 
         chat.messages.push({ role: 'user', text: question });
         await chat.save();
 
         const contextChunks = await getMatchesFromEmbeddings(question, 15, currentRepo);
         const contextText = contextChunks
-            .map(c => `FILE: ${c.path}\n${c.content}`)
+            .map(chunk => `FILE: ${chunk.path}\n${chunk.content}`)
             .join('\n\n');
 
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -131,7 +137,7 @@ app.post('/api/chat', auth, async (req, res) => {
 Question: ${question}
 Context:
 ${contextText}
-Respond in Markdown format:
+Answer in Markdown format:
         `;
 
         const result = await model.generateContent(prompt);
@@ -143,7 +149,7 @@ Respond in Markdown format:
 
         res.json({ answer });
     } catch {
-        res.status(500).json({ error: "Response failed" });
+        res.status(500).json({ error: "Failed to generate answer" });
     }
 });
 
@@ -153,7 +159,7 @@ app.get('/api/chat/history', auth, async (req, res) => {
         const chat = await ChatHistory.findOne({ userId: req.userId, repoUrl });
         res.json(chat ? chat.messages : []);
     } catch {
-        res.status(500).json({ error: "Fetch failed" });
+        res.status(500).json({ error: "Failed" });
     }
 });
 
@@ -164,10 +170,10 @@ app.get('/api/chats', auth, async (req, res) => {
             .sort({ lastAccessed: -1 });
         res.json(chats);
     } catch {
-        res.status(500).json({ error: "Fetch failed" });
+        res.status(500).json({ error: "Failed" });
     }
 });
 
 server.listen(PORT, () => {
-    console.log(`Server running on ${PORT}`);
+    console.log(`Server running on http://localhost:${PORT}`);
 });

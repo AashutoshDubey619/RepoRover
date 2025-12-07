@@ -2,7 +2,7 @@ import { useState } from 'react';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 import { Mail, Lock, User, ArrowRight, Loader2 } from 'lucide-react';
-import logo from '../assets/logo.png';   // ⬅️ added
+import logo from '../assets/logo.png';  
 
 const API_BASE_URL = 'https://reporover-backend.onrender.com';
 
