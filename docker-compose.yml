@@ -1,14 +1,6 @@
 version: '3.8'
 
 services:
-  mongo:
-    image: mongo:latest
-    container_name: reporover_mongo
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo-data:/data/db
-
   backend:
     build:
       context: .
@@ -17,13 +9,11 @@ services:
     ports:
       - "5000:5000"
     environment:
-      - MONGO_URI=mongodb://mongo:27017/reporover_db
+      - MONGO_URI=${MONGO_URI}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - PINECONE_API_KEY=${PINECONE_API_KEY}
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - PORT=5000
-    depends_on:
-      - mongo
 
   frontend:
     build:
@@ -34,6 +24,3 @@ services:
       - "80:80"
     depends_on:
       - backend
-
-volumes:
-  mongo-data:
