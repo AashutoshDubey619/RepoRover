@@ -25,7 +25,9 @@ app.use(cors());
 app.use(express.json());
 app.use('/api/auth', authRoutes);
 
-io.on("connection", () => {});
+io.on("connection", (socket) => {
+    console.log("Client connected");
+});
 
 const isCodeFile = (filename) => {
     const ignorePatterns = [
@@ -65,7 +67,7 @@ async function getRepoStructure(owner, repo, path = '') {
     }
 }
 
-app.post('/api/ingest', async (req, res) => {
+app.post('/api/ingest', auth, async (req, res) => {
     const { repoUrl } = req.body;
     if (!repoUrl) return res.status(400).json({ error: 'Repo URL required' });
 
@@ -104,7 +106,7 @@ app.post('/api/ingest', async (req, res) => {
     }
 });
 
-app.post('/api/chat', async (req, res) => {
+app.post('/api/chat', auth, async (req, res) => {
     const { question, repoUrl } = req.body;
     if (!question) return res.status(400).json({ error: 'Question required' });
 
@@ -153,7 +155,7 @@ Answer in Markdown format:
     }
 });
 
-app.get('/api/chat/history', async (req, res) => {
+app.get('/api/chat/history', auth, async (req, res) => {
     const { repoUrl } = req.query;
     try {
         const chat = await ChatHistory.findOne({ repoUrl });
@@ -163,7 +165,7 @@ app.get('/api/chat/history', async (req, res) => {
     }
 });
 
-app.get('/api/chats', async (req, res) => {
+app.get('/api/chats', auth, async (req, res) => {
     try {
         const chats = await ChatHistory.find({})
             .select('repoUrl lastAccessed')
