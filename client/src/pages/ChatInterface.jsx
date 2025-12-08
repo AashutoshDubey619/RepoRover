@@ -94,10 +94,7 @@ function ChatInterface() {
       setStatus('ready');
       setIsSidebarOpen(false);
       try {
-        const token = localStorage.getItem('token');
-        const res = await axios.get(`${API_BASE_URL}/api/chat/history?repoUrl=${url}`, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
+        const res = await axios.get(`${API_BASE_URL}/api/chat/history?repoUrl=${url}`);
         if(res.data.length > 0) {
             setMessages(res.data);
         } else {
@@ -114,10 +111,7 @@ function ChatInterface() {
     setStatus('scanning');
     setLogs([]);
     try {
-      const token = localStorage.getItem('token');
-      const res = await axios.post(`${API_BASE_URL}/api/ingest`, { repoUrl }, {
-          headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await axios.post(`${API_BASE_URL}/api/ingest`, { repoUrl });
       setStatus('ready');
       setMessages(prev => [...prev, { role: 'bot', text: `Analysis complete. Indexing finished for ${res.data.totalFiles} files. System ready for queries.` }]);
       fetchChatList();
@@ -136,10 +130,7 @@ function ChatInterface() {
     setStatus('chatting');
 
     try {
-        const token = localStorage.getItem('token');
-        const res = await axios.post(`${API_BASE_URL}/api/chat`, { question: userQ, repoUrl }, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
+        const res = await axios.post(`${API_BASE_URL}/api/chat`, { question: userQ, repoUrl });
         setMessages(prev => [...prev, { role: 'bot', text: res.data.answer }]);
         fetchChatList();
     } catch (err) {

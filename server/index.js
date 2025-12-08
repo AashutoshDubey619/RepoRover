@@ -65,7 +65,7 @@ async function getRepoStructure(owner, repo, path = '') {
     }
 }
 
-app.post('/api/ingest', auth, async (req, res) => {
+app.post('/api/ingest', async (req, res) => {
     const { repoUrl } = req.body;
     if (!repoUrl) return res.status(400).json({ error: 'Repo URL required' });
 
@@ -104,7 +104,7 @@ app.post('/api/ingest', auth, async (req, res) => {
     }
 });
 
-app.post('/api/chat', auth, async (req, res) => {
+app.post('/api/chat', async (req, res) => {
     const { question, repoUrl } = req.body;
     if (!question) return res.status(400).json({ error: 'Question required' });
 
@@ -113,10 +113,10 @@ app.post('/api/chat', auth, async (req, res) => {
         : "Unknown-Repo";
 
     try {
-        let chat = await ChatHistory.findOne({ userId: req.userId, repoUrl: currentRepo });
+        let chat = await ChatHistory.findOne({ repoUrl: currentRepo });
         if (!chat) {
             chat = new ChatHistory({
-                userId: req.userId,
+                userId: null,
                 repoUrl: currentRepo,
                 messages: []
             });
@@ -153,19 +153,19 @@ Answer in Markdown format:
     }
 });
 
-app.get('/api/chat/history', auth, async (req, res) => {
+app.get('/api/chat/history', async (req, res) => {
     const { repoUrl } = req.query;
     try {
-        const chat = await ChatHistory.findOne({ userId: req.userId, repoUrl });
+        const chat = await ChatHistory.findOne({ repoUrl });
         res.json(chat ? chat.messages : []);
     } catch {
         res.status(500).json({ error: "Failed" });
     }
 });
 
-app.get('/api/chats', auth, async (req, res) => {
+app.get('/api/chats', async (req, res) => {
     try {
-        const chats = await ChatHistory.find({ userId: req.userId })
+        const chats = await ChatHistory.find({})
             .select('repoUrl lastAccessed')
             .sort({ lastAccessed: -1 });
         res.json(chats);
